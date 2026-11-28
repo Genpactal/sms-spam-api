@@ -1,0 +1,51 @@
+name: sms-spam
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build: .
+    command: ["streamlit", "run", "frontend.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false"]
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mlflow:
+    build: .
+    working_dir: /mlflow
+    environment:
+      MLFLOW_TRACKING_URI: sqlite:////mlflow/mlflow.db
+    volumes:
+      - mlflow-data:/mlflow
+    ports:
+      - "5000:5000"
+    command:
+      - sh
+      - -ec
+      - |
+        if [ ! -f /mlflow/.initialized ]; then
+          python /app/train.py
+          touch /mlflow/.initialized
+        fi
+        exec mlflow ui --backend-store-uri sqlite:////mlflow/mlflow.db --host 0.0.0.0 --port 5000 --workers 1
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      start_period: 120s
+      retries: 10
+
+volumes:
+  mlflow-data:

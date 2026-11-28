@@ -1,4 +1,6 @@
 *
 !requirements.txt
 !main.py
+!frontend.py
+!train.py
 !model.joblib

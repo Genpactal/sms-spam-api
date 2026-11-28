@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 from pathlib import Path
 from urllib.request import urlopen
 from zipfile import ZipFile
@@ -38,7 +39,9 @@ def main():
         TfidfVectorizer(),
         LogisticRegression(class_weight="balanced", random_state=42, max_iter=1000),
     )
-    mlflow.set_tracking_uri(f"sqlite:///{(folder / 'mlflow.db').as_posix()}")
+    mlflow.set_tracking_uri(os.getenv(
+        "MLFLOW_TRACKING_URI", f"sqlite:///{(folder / 'mlflow.db').as_posix()}",
+    ))
     mlflow.set_experiment("sms-spam")
     with mlflow.start_run():
         mlflow.log_params({

@@ -5,6 +5,53 @@ A small FastAPI service that classifies English SMS messages as `spam` or
 registry. The model combines TF-IDF and logistic regression in one saved
 scikit-learn pipeline.
 
+## Start everything with Docker Compose
+
+Start Docker Desktop. Stop any old API container and local API, Streamlit, or
+MLflow servers using ports 8000, 8501, or 5000. From this project folder, run:
+
+```powershell
+docker compose up --build
+```
+
+This starts all three services; no Python environment activation or separate
+terminals are needed:
+
+| Service | URL |
+| --- | --- |
+| Streamlit interface | http://localhost:8501 |
+| FastAPI / Swagger | http://localhost:8000/docs |
+| MLflow dashboard | http://localhost:5000 |
+
+Streamlit calls the API through the Compose network. It waits for the API's
+health check before starting.
+
+On the first startup, MLflow downloads the UCI dataset and trains/registers a
+model so the dashboard includes an experiment, metrics, artifacts, and a model
+version. This requires internet and may take a minute. A successful setup is
+marked in its persistent Docker volume, so later starts do not retrain.
+MLflow's database and artifacts survive `docker compose down` and are separate
+from the existing Windows `mlflow.db` and `mlruns/`; local history is preserved.
+The API serves the `model.joblib` included when the image was built. Model
+registration does not automatically replace the API's model.
+
+For later starts without code changes, use `docker compose up`. To run in the
+background, use `docker compose up -d`. Check services with `docker compose ps`
+and logs with `docker compose logs`. To stop them:
+
+```powershell
+docker compose down
+```
+
+Rebuild with `docker compose up --build` after changing code or `model.joblib`.
+To log another training run in the Docker MLflow instance:
+
+```powershell
+docker compose exec mlflow python /app/train.py
+```
+
+This registers another version; the API continues serving its built-in model.
+
 ## Run locally (PowerShell)
 
 Use Python 3.12. From the project folder:
@@ -84,7 +131,7 @@ run, or **Models > sms-spam-classifier** to view its versions. The API continues
 to use the local `model.joblib` written by training. Restart the API after
 retraining so it loads the updated model.
 
-## Run with Docker
+## Run only the API with Docker
 
 Install and start Docker Desktop, then run from the project folder:
 
@@ -95,15 +142,17 @@ docker run --rm -p 8000:8000 sms-spam-api
 
 Use the same URLs and request above. Stop the local server before running the
 container on port 8000. The image includes the saved model and needs no dataset
-download or training at startup. This container runs the API; run Streamlit and
-MLflow locally using the commands above. Streamlit can also call the container's
-API through port 8000.
+download or training at startup. For all three services together, use Docker
+Compose as described above.
 
 Local verification passed for both endpoints, `/docs`, invalid input, Streamlit
 predictions and error handling, MLflow parameters/metrics/artifacts, and registered
 model loading and predictions. Both Streamlit and MLflow web pages were checked.
-Docker build and container execution have not been verified because Docker was
-not installed in the development environment.
+The standalone API image was built and started successfully by the user.
+Compose configuration and startup-shell syntax, the frontend's configurable API
+connection, and isolated MLflow training/registration/artifact downloads passed
+local checks. The full Compose stack still needs verification in Docker Desktop;
+Docker was unavailable in the editing environment.
 
 ## Dataset
 
